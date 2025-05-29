@@ -25,12 +25,17 @@ connectDB();
 
 const app = express();
 // app.use(cors());/
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+// app.use(
+//   cors({
+//     origin: ["http://localhost:5173", "http://localhost:3000"],
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//   })
+// );
+app.use(cors({
+  origin: 'https://telego-web-cnm-reactjs-2025.onrender.com', // Domain của frontend
+  methods: ['GET', 'POST'], // Phương thức được phép
+  credentials: true // Nếu cần gửi cookie hoặc thông tin xác thực
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -44,13 +49,21 @@ app.use("/api/qr", qrRoutes);
 app.use('/api/group-qr', groupQrRoute);
 
 const server = http.createServer(app);
-const io = new Server(server, {
+// const io = new Server(server, {
+//   cors: {
+//     origin: ["http://localhost:5173", "http://localhost:3000"], // Chỉnh lạ'i nếu cần (ví dụ: 'http://localhost:3000')
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//   },
+// });
+// setSocketIO(io);
+// Cấu hình Socket.IO với CORS
+const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000"], // Chỉnh lạ'i nếu cần (ví dụ: 'http://localhost:3000')
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  },
+    origin: 'https://telego-web-cnm-reactjs-2025.onrender.com', // Domain của frontend
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
 });
-setSocketIO(io);
 
 // Lưu người dùng online
 // global.onlineUsers = new Map();
