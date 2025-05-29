@@ -8,6 +8,7 @@ const groupRoutes = require("./routes/groupRoutes");
 const UserModel = require("./models/UserModel");
 const MessageModel = require("./models/MessageModel");
 const qrRoutes = require("./routes/qrRoutes");
+const groupQrRoute = require('./routes/groupQrRoutes');
 const cors = require("cors");
 const morgan = require("morgan");
 const http = require("http");
@@ -40,6 +41,8 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/qr", qrRoutes);
+app.use('/api/group-qr', groupQrRoute);
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
