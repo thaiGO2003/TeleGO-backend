@@ -108,7 +108,7 @@ exports.acceptFriend = async (req, res) => {
     await friend.save();
 
     // Phát sự kiện Socket.IO
-    const io = req.app.get("io");
+    const io = getSocketIO();
     if (io) {
       const fromSocket = getOnlineUsers().get(idUser1);
       const toSocket = getOnlineUsers().get(idUser2);
