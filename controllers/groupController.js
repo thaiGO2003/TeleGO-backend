@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+
 // const groupModel = require("../models/GroupModel");
 // const userModel = require("../models/UserModel");
 
@@ -1157,5 +1159,104 @@ exports.getMembersInGroup = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+};
+
+exports.joinGroup = async (req, res) => {
+  const { groupId, userId } = req.body;
+  try {
+    // Kiểm tra groupId và userId
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "ID nhóm hoặc người dùng không hợp lệ" });
+    }
+
+    // Kiểm tra nhóm
+    const group = await groupModel.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Nhóm không tồn tại" });
+    }
+
+    // Kiểm tra người dùng
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
+    }
+
+    // Kiểm tra xem người dùng đã trong nhóm chưa
+    if (group.groupMembers.includes(userId)) {
+      return res.status(409).json({ message: "Người dùng đã là thành viên của nhóm" });
+    }
+
+    // Thêm người dùng vào nhóm
+    group.groupMembers.push(userId);
+    const groupData = await group.save();
+
+    // Tạo thông báo hệ thống
+    const notificationMessage = {
+      from: SYSTEM_USER_ID,
+      groupId: group._id,
+      message: `${user.fullName || "Không xác định"} đã tham gia nhóm.`,
+      files: [],
+      isGif: false,
+      replyTo: null,
+    };
+    await addMessage({ body: notificationMessage, file: null }, mockRes);
+
+    // Gửi sự kiện Socket.IO chỉ cho người dùng trực tuyến
+    const io = getSocketIO();
+    const onlineUsers = getOnlineUsers();
+    if (io && onlineUsers) {
+      // Gửi groupMemberAdded cho người dùng vừa tham gia (nếu trực tuyến)
+      const userSocket = onlineUsers.get(userId.toString());
+      if (userSocket) {
+        console.log(
+          `📢 [Socket.IO] Người dùng ${userId} tham gia nhóm ${groupId}, gửi tới socket: ${userSocket}`
+        );
+        io.to(userSocket).emit("groupMemberAdded", {
+          groupId,
+          groupName: group.groupName,
+          addedMemberId: userId,
+        });
+        console.log(`📢 [Socket.IO] Đã gửi groupMemberAdded tới ${userId}`);
+      } else {
+        console.log(
+          `📢 [Socket.IO] Người dùng ${userId} không trực tuyến, không gửi groupMemberAdded`
+        );
+      }
+
+      // Gửi groupUpdated cho các thành viên khác (trừ admin, nếu trực tuyến)
+      group.groupMembers.forEach((memberId) => {
+        const memberIdStr = memberId.toString();
+        if (memberIdStr !== userId && memberIdStr !== group.groupAdmin.toString()) {
+          const memberSocket = onlineUsers.get(memberIdStr);
+          if (memberSocket) {
+            console.log(
+              `📢 [Socket.IO] Gửi groupUpdated tới thành viên ${memberIdStr}, socket: ${memberSocket}`
+            );
+            io.to(memberSocket).emit("groupUpdated", {
+              groupId,
+              groupName: group.groupName,
+              addedMembers: [userId],
+            });
+            console.log(`📢 [Socket.IO] Đã gửi groupUpdated tới ${memberIdStr}`);
+          } else {
+            console.log(
+              `📢 [Socket.IO] Thành viên ${memberIdStr} không trực tuyến, không gửi groupUpdated`
+            );
+          }
+        }
+      });
+    } else {
+      console.error("Không tìm thấy Socket.IO hoặc onlineUsers");
+    }
+
+    res.json({
+      message: "Tham gia nhóm thành công",
+      addedMember: userId,
+      group: groupData,
+    });
+  } catch (err) {
+    console.error("Lỗi khi tham gia nhóm:", err);
+    res.status(500).json({ message: "Lỗi máy chủ nội bộ" });
   }
 };

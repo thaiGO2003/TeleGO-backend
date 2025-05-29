@@ -18,7 +18,7 @@ const {
   votePoll,
   createPoll,
   getPolls,
-  removeVote
+  removeVote, unreactToMessage
 } = require("../controllers/messageController");
 const uploadMultipart = require("../middlewares/upload-multipart");
 const uploadAndDownload = require("../middlewares/uploadAndDowload");
@@ -35,6 +35,7 @@ router.get("/usermessages/:userId", getMessagesByUser);
 router.get("/lastmessages/:userId", getLastMessagesPerUser);
 router.post("/delete-conversation", deleteConversation);
 router.post("/react", reactToMessage);
+router.post("/unreact", unreactToMessage);
 // router.post("/sendmedia", uploadAndDownload.single("file"), sendMediaMessage);
 router.post("/sendmedia", uploadAndDownload, sendMediaMessage);
 //đã sửa:
