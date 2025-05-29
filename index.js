@@ -32,9 +32,12 @@ const app = express();
 //   })
 // );
 app.use(cors({
-  origin: 'https://telego-web-cnm-reactjs-2025.onrender.com', // Domain của frontend
-  methods: ['GET', 'POST'], // Phương thức được phép
-  credentials: true // Nếu cần gửi cookie hoặc thông tin xác thực
+  origin: [
+    'https://telego-web-cnm-reactjs-2025.onrender.com',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -59,7 +62,10 @@ const server = http.createServer(app);
 // Cấu hình Socket.IO với CORS
 const io = new Server(server, {
   cors: {
-    origin: 'https://telego-web-cnm-reactjs-2025.onrender.com', // Domain của frontend
+    origin: [
+      'https://telego-web-cnm-reactjs-2025.onrender.com', // Domain sản xuất
+      'http://localhost:5173', // Môi trường phát triển cục bộ
+    ],
     methods: ['GET', 'POST'],
     credentials: true
   }
