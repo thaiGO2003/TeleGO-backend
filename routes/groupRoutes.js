@@ -13,7 +13,7 @@ const {
   getGroupsByMemberId,
   getAllGroups,
   getMembersInGroup,
-  updateAvatar,
+  updateAvatar, joinGroup
 } = require("../controllers/groupController");
 const upload = require("../middlewares/upload-multipart"); // Import middleware upload
 const router = express.Router();
@@ -58,4 +58,7 @@ router.get("/get-member/:groupId", getMembersInGroup);
 
 // Cập nhật avatar nhóm
 router.put("/update-avatar", upload.single("avatar"), updateAvatar);
+router.post("/join-group", joinGroup);
+
+
 module.exports = router;

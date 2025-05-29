@@ -102,25 +102,39 @@ exports.acceptFriend = async (req, res) => {
       status: 1,
     });
     if (!friend) {
+      console.log(`Friend request not found for idUser1: ${idUser1}, idUser2: ${idUser2}`);
       return res.status(404).json({ message: "Friend request not found" });
     }
     friend.status = 2;
     await friend.save();
+    console.log(`Friend request accepted: ${friend._id}`);
 
     // Phát sự kiện Socket.IO
     const io = getSocketIO();
     if (io) {
+      console.log("Online users:", Array.from(getOnlineUsers().entries()));
       const fromSocket = getOnlineUsers().get(idUser1);
       const toSocket = getOnlineUsers().get(idUser2);
       if (fromSocket) {
+        console.log(`Emitting friendAccepted to socket: ${fromSocket} for user ${idUser1}`);
         io.to(fromSocket).emit("friendAccepted", {
           from: idUser2,
           to: idUser1,
         });
+      } else {
+        console.log(`User ${idUser1} is not online`);
       }
       if (toSocket) {
-        io.to(toSocket).emit("friendAccepted", { from: idUser2, to: idUser1 });
+        console.log(`Emitting friendAccepted to socket: ${toSocket} for user ${idUser2}`);
+        io.to(toSocket).emit("friendAccepted", {
+          from: idUser2,
+          to: idUser1,
+        });
+      } else {
+        console.log(`User ${idUser2} is not online`);
       }
+    } else {
+      console.error("Socket.IO instance not found");
     }
 
     res.json({ message: "Friend request accepted" });
@@ -228,19 +242,68 @@ exports.getAddFriend = async (req, res) => {
 exports.unfriend = async (req, res) => {
   const { idUser1, idUser2 } = req.body;
   try {
+    // Kiểm tra đầu vào
+    if (!idUser1 || !idUser2) {
+      console.error("Thiếu idUser1 hoặc idUser2:", { idUser1, idUser2 });
+      return res.status(400).json({ message: "Thiếu ID người dùng" });
+    }
+
+    // Xóa mối quan hệ bạn bè
     const friend = await FriendModel.findOneAndDelete({
       $or: [
-        { idUser1, idUser2 },
-        { idUser1: idUser2, idUser2: idUser1 },
+        { idUser1, idUser2, status: 2 },
+        { idUser1: idUser2, idUser2: idUser1, status: 2 },
       ],
-      status: 2,
     });
     if (!friend) {
-      return res.status(404).json({ message: "Unfriend request not found" });
+      console.log("Không tìm thấy mối quan hệ bạn bè:", { idUser1, idUser2 });
+      return res.status(404).json({ message: "Yêu cầu hủy kết bạn không tồn tại" });
     }
-    res.json({ message: "Unfriend successful" });
+
+    // Phát sự kiện Socket.IO
+    const io = getSocketIO();
+    const onlineUsers = getOnlineUsers();
+    if (io && onlineUsers) {
+      // Gửi sự kiện friendRemoved tới idUser1 (nếu trực tuyến)
+      const user1Socket = onlineUsers.get(idUser1);
+      if (user1Socket) {
+        console.log(
+          `📢 [Socket.IO] Gửi friendRemoved tới ${idUser1}, socket: ${user1Socket}`
+        );
+        io.to(user1Socket).emit("friendRemoved", {
+          from: idUser1,
+          removedUserId: idUser2,
+        });
+        console.log(`📢 [Socket.IO] Đã gửi friendRemoved tới ${idUser1}`);
+      } else {
+        console.log(
+          `📢 [Socket.IO] Người dùng ${idUser1} không trực tuyến, không gửi friendRemoved`
+        );
+      }
+
+      // Gửi sự kiện friendRemoved tới idUser2 (nếu trực tuyến)
+      const user2Socket = onlineUsers.get(idUser2);
+      if (user2Socket) {
+        console.log(
+          `📢 [Socket.IO] Gửi friendRemoved tới ${idUser2}, socket: ${user2Socket}`
+        );
+        io.to(user2Socket).emit("friendRemoved", {
+          from: idUser2,
+          removedUserId: idUser1,
+        });
+        console.log(`📢 [Socket.IO] Đã gửi friendRemoved tới ${idUser2}`);
+      } else {
+        console.log(
+          `📢 [Socket.IO] Người dùng ${idUser2} không trực tuyến, không gửi friendRemoved`
+        );
+      }
+    } else {
+      console.error("Không tìm thấy Socket.IO hoặc onlineUsers");
+    }
+
+    res.json({ message: "Hủy kết bạn thành công" });
   } catch (err) {
-    console.error("Error unfriend:", err);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Lỗi khi hủy kết bạn:", err);
+    res.status(500).json({ message: "Lỗi máy chủ nội bộ" });
   }
 };
