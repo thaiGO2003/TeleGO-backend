@@ -57,7 +57,7 @@ const server = http.createServer(app);
 // });
 // setSocketIO(io);
 // Cấu hình Socket.IO với CORS
-const io = new Server(httpServer, {
+const io = new Server(server, {
   cors: {
     origin: 'https://telego-web-cnm-reactjs-2025.onrender.com', // Domain của frontend
     methods: ['GET', 'POST'],
