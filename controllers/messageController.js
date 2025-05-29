@@ -1674,6 +1674,91 @@ module.exports.getPinnedMessages = async (req, res, next) => {
 //     return next(err);
 //   }
 // };
+// module.exports.createPoll = async (req, res, next) => {
+//   try {
+//     const { from, groupId, question, options } = req.body;
+
+//     // Kiểm tra đầu vào
+//     if (!mongoose.Types.ObjectId.isValid(from) || !mongoose.Types.ObjectId.isValid(groupId)) {
+//       return res.status(400).json({ msg: "Invalid user ID or group ID" });
+//     }
+//     if (!question || !options || !Array.isArray(options) || options.length < 2) {
+//       return res.status(400).json({ msg: "Question and at least two options are required" });
+//     }
+//     if (options.some((opt) => !opt.text)) {
+//       return res.status(400).json({ msg: "All options must have text" });
+//     }
+
+//     // Kiểm tra nhóm tồn tại và user là thành viên/admin
+//     const group = await groupModel.findById(groupId);
+//     if (!group) {
+//       return res.status(404).json({ msg: "Group not found" });
+//     }
+//     const isMember = group.groupMembers.includes(from) || group.groupAdmin.toString() === from;
+//     if (!isMember) {
+//       return res.status(403).json({ msg: "You are not a member of this group" });
+//     }
+
+//     // Tạo tin nhắn khảo sát
+//     const newPoll = {
+//       sender: from,
+//       groupId,
+//       users: [],
+//       message: { text: question, files: [], emoji: "" },
+//       poll: {
+//         question,
+//         options: options.map((opt) => ({ text: opt.text, votes: [] })),
+//         isActive: true,
+//       },
+//     };
+
+//     const message = await Messages.create(newPoll);
+
+//     // Gửi thông báo
+//     const io = getSocketIO();
+//     const onlineUsers = getOnlineUsers();
+//     group.groupMembers.forEach((memberId) => {
+//       const memberSocket = onlineUsers.get(memberId.toString());
+//       if (io && memberSocket && memberId.toString() !== from) {
+//         io.to(memberSocket).emit("group-msg-receive", {
+//           type: "poll-created",
+//           groupId,
+//           from,
+//           message: {
+//             text: message.message.text,
+//             files: [],
+//             emoji: "",
+//           },
+//           poll: {
+//             _id: message._id,
+//             question: message.poll.question,
+//             options: message.poll.options,
+//             isActive: message.poll.isActive,
+//           },
+//           createdAt: message.createdAt,
+//           _id: message._id,
+//         });
+//       }
+//     });
+
+//     return res.json({
+//       msg: "Poll created successfully",
+//       poll: {
+//         _id: message._id,
+//         question: message.message.text, // Sửa lỗi
+//         options: message.poll.options,
+//         isActive: true,
+//         createdAt: message.createdAt,
+//         from,
+//         groupId,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error in createPoll:", err);
+//     return next(err);
+//   }
+// };
+
 module.exports.createPoll = async (req, res, next) => {
   try {
     const { from, groupId, question, options } = req.body;
@@ -1716,30 +1801,31 @@ module.exports.createPoll = async (req, res, next) => {
 
     // Gửi thông báo
     const io = getSocketIO();
-    const onlineUsers = getOnlineUsers();
-    group.groupMembers.forEach((memberId) => {
-      const memberSocket = onlineUsers.get(memberId.toString());
-      if (io && memberSocket && memberId.toString() !== from) {
-        io.to(memberSocket).emit("group-msg-receive", {
-          type: "poll-created",
-          groupId,
-          from,
-          message: {
-            text: message.message.text,
-            files: [],
-            emoji: "",
-          },
-          poll: {
-            _id: message._id,
-            question: message.poll.question,
-            options: message.poll.options,
-            isActive: message.poll.isActive,
-          },
-          createdAt: message.createdAt,
-          _id: message._id,
-        });
-      }
+const onlineUsers = getOnlineUsers();
+group.groupMembers.forEach((memberId) => {
+  const memberSocket = onlineUsers.get(memberId.toString());
+  if (io && memberSocket) {
+    io.to(memberSocket).emit("group-msg-receive", {
+      type: "poll-created",
+      groupId,
+      from,
+      message: {
+        text: message.message.text,
+        files: [],
+        emoji: "",
+      },
+      poll: {
+        _id: message._id,
+        question: message.poll.question,
+        options: message.poll.options,
+        isActive: message.poll.isActive,
+      },
+      createdAt: message.createdAt,
+      _id: message._id,
+      senderName: group.groupMembers.find((m) => m.toString() === from)?.fullName || "Unknown",
     });
+  }
+});
 
     return res.json({
       msg: "Poll created successfully",
